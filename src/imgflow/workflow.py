@@ -107,7 +107,6 @@ class Source:
         """
         dx = Source.len_intersect(b1[0], b1[2], b2[0], b2[2])
         dy = Source.len_intersect(b1[1], b1[3], b2[1], b2[3])
-        print(dx * dy / (Source.area_box(b1) + Source.area_box(b2) - dx * dy))
         return dx * dy / (Source.area_box(b1) + Source.area_box(b2) - dx * dy) > threshold
 
 
@@ -125,22 +124,27 @@ class Source:
             return
 
         box_indices = [_ for _ in range(self.get_num_detection())]
-        b = [[] for _ in box_indices]
+        b = [1 for _ in box_indices]
         from itertools import combinations
+
+        # evaluate boxes in pairs
         for i, j in list(combinations(box_indices, 2)):
+            # skip evaluation if either box was excluded
+            if b[i]==0 or b[j]==0:
+                continue
+
             b1 = self.box(i)
             b2 = self.box(j)
+
+            # mark zero each time a box is ignored in a pair
             if Source.has_overlap(self.box(i), self.box(j)):
                 if Source.area_box(b1) >= Source.area_box(b2):
-                    b[i].append(1)
-                    b[j].append(0)
+                    b[j] = 0
                 else:
-                    b[i].append(0)
-                    b[j].append(1)
-            else:
-                b[i].append(1)
-                b[j].append(1)
-        self.index_distinct_objects = np.where(np.min(np.array(b), axis=1) == 1)
+                    b[i] = 0
+
+        # exclude boxes being ignored in at least one evaluated pair
+        self.index_distinct_objects = np.where(np.array(b)==1)
 
 
     def box(self, i:int) -> np.array:
