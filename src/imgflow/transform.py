@@ -87,7 +87,7 @@ class TransformSquare(ImgTransform):
     """
     def transform(self, X: np.array) -> np.array:
         h, w, k = X.shape
-        color = self.source.color_sample.reshape((1,1,3)).astype(np.uint8)
+        color = self.source.color_sample[self.index].reshape((1,1,3)).astype(np.uint8)
         if h>w:
             d = np.round((h-w)/2).astype('int')
             fill_left = np.tile(color, (h, d, 1))

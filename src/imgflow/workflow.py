@@ -41,7 +41,7 @@ class Source:
     def __init__(self):
         self.model = YOLO(YOLO_MODEL)
         self.result = None
-        self.color_sample = None
+        self.color_sample = {}
         self.index_distinct_objects = None
 
     def from_jpg(self, filename: str):
@@ -226,19 +226,20 @@ class Source:
         """
         contour = self.contour(i)
         mask_inverted = (self.mask(i)==0) * 1
+        mask_inverted = mask_inverted.squeeze()
         x,y = np.where(contour==1)
 
         colors = []
-        for i in tqdm(range(0,len(x),round(len(x)/n_sample))):
+        for j in tqdm(range(0,len(x),round(len(x)/n_sample))):
             patch = np.zeros(mask_inverted.shape)
-            xmax, ymax, _ = mask_inverted.shape
-            patch[max(x[i]-d,0):min(xmax, x[i]+d), max(y[i]-d,0):min(y[i]+d,ymax), 0]=1
+            xmax, ymax = mask_inverted.shape
+            patch[max(x[j]-d,0):min(xmax, x[j]+d), max(y[j]-d,0):min(y[j]+d,ymax)]=1
             patch_outside = patch * mask_inverted
-            avg_color = (self.orig_img() * patch_outside).sum(axis=(0,1))/patch_outside.sum()
+            avg_color = (self.orig_img() * patch_outside[:,:,None]).sum(axis=(0,1))/patch_outside.sum()
             colors.append(avg_color)
 
-            # store sampled background color
-            self.color_sample = np.array(colors).mean(axis=0)
+        # store sampled background color
+        self.color_sample[i] = np.array(colors).mean(axis=0)
         return np.array(colors).mean(axis=0)
 
 class Workflow:
