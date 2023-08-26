@@ -42,6 +42,7 @@ class Source:
         self.model = YOLO(YOLO_MODEL)
         self.result = None
         self.color_sample = None
+        self.index_distinct_objects = None
 
     def from_jpg(self, filename: str):
         """
@@ -52,7 +53,95 @@ class Source:
         Returns: None
 
         """
-        self.result = self.model(filename)[0]
+        self.result = self.model(filename, save_conf=True)[0]
+
+    @staticmethod
+    def len_intersect(b11: float, b12: float, b21: float, b22: float) -> float:
+        """
+            Calculate 1-d intersection length of two input lengths (b11,b12) and (b21,b22).
+
+        Args:
+            b11: coordinate of the first end-point of b1
+            b12: coordinate of the second end-point of b1
+            b21: coordinate of the first end-point of b2
+            b22: coordinate of the second end-point of b2
+
+        Returns:
+            length of intersection
+        """
+        if (b12 < b21 or b22 < b11):
+            return 0
+        elif (b11 < b21 and b12 > b22):
+            return b22 - b21
+        elif (b21 < b11 and b22 > b12):
+            return b12 - b11
+        elif (b11 < b21):
+            return b12 - b21
+        else:
+            return b22 - b11
+
+    @staticmethod
+    def area_box(b: np.array) -> float:
+        """
+            Calculate area of box b
+
+        Args:
+            b: np.array of shape (1 x 4)
+
+        Returns:
+            box area
+        """
+        return (b[2] - b[0]) * (b[3] - b[1])
+
+    @staticmethod
+    def has_overlap(b1: np.array, b2: np.array, threshold=0.8) -> bool:
+        """
+            Return true if two boxes has overlapping area greater than threshold (default = 0.8 of total mask area)
+        Args:
+            b1: coordinates of first box, np.array of shape 1 x 4
+            b2: coordinates of second box, np.array of shape 1 x 4
+            threshold: proportion of overlapping area / total area
+
+        Returns:
+            True / False
+        """
+        dx = Source.len_intersect(b1[0], b1[2], b2[0], b2[2])
+        dy = Source.len_intersect(b1[1], b1[3], b2[1], b2[3])
+        print(dx * dy / (Source.area_box(b1) + Source.area_box(b2) - dx * dy))
+        return dx * dy / (Source.area_box(b1) + Source.area_box(b2) - dx * dy) > threshold
+
+
+    def check_distinct(self) -> None:
+        """
+           Update attribute index_distinct_objects which is a list containing indices of distinct objects.
+
+        Returns: None
+
+        """
+        if self.get_num_detection() == 1:
+            self.index_distinct_objects = [0]
+            return
+        elif self.get_num_detection() == 0:
+            return
+
+        box_indices = [_ for _ in range(self.get_num_detection())]
+        b = [[] for _ in box_indices]
+        from itertools import combinations
+        for i, j in list(combinations(box_indices, 2)):
+            b1 = self.box(i)
+            b2 = self.box(j)
+            if Source.has_overlap(self.box(i), self.box(j)):
+                if Source.area_box(b1) >= Source.area_box(b2):
+                    b[i].append(1)
+                    b[j].append(0)
+                else:
+                    b[i].append(0)
+                    b[j].append(1)
+            else:
+                b[i].append(1)
+                b[j].append(1)
+        self.index_distinct_objects = np.where(np.min(np.array(b), axis=1) == 1)
+
 
     def box(self, i:int) -> np.array:
         """
