@@ -197,7 +197,7 @@ class Source:
         Args:
             i: i-th object
 
-        Returns: np.array of size H x W x 1
+        Returns: np.array of size H x W
 
         """
         A = self.mask(i)
@@ -206,7 +206,8 @@ class Source:
         C2 = np.max(B, axis=0)
         D1 = C1==0
         D2 = C2>0
-        return (D1*D2>0)*1
+        E = (D1*D2>0)*1
+        return E.squeeze()
 
     def sample_color(self, i: int, d:int = 5, n_sample:int = 10):
         """
@@ -225,7 +226,7 @@ class Source:
         """
         contour = self.contour(i)
         mask_inverted = (self.mask(i)==0) * 1
-        x,y,_ = np.where(contour==1)
+        x,y = np.where(contour==1)
 
         colors = []
         for i in tqdm(range(0,len(x),round(len(x)/n_sample))):
